@@ -1,0 +1,6 @@
+{
+  "name": "राजस्व न्यायालय केस डायरी",
+  "description": "उत्तर प्रदेश के लिए मोबाइल-फर्स्ट हिंदी राजस्व न्यायालय केस डायरी, दैनिक कार्यवाही, दस्तावेज़ प्रबंधन एवं पेशी रिमाइंडर एप्लिकेशन।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

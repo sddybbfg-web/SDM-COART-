@@ -1,0 +1,628 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile for a revenue court advocate, litigant, or official.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "mobileNumber": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "designation": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "district": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "tehsil": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"]
+        },
+        "isBlocked": {
+          "type": "boolean"
+        },
+        "caseCount": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "name", "mobileNumber", "address", "designation", "district", "tehsil", "role", "isBlocked", "caseCount", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator directory record.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "addedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "addedAt"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Global application settings managed by administrators.",
+      "type": "object",
+      "properties": {
+        "appName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "maintenanceMode": {
+          "type": "boolean"
+        },
+        "announcement": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "allowNewRegistrations": {
+          "type": "boolean"
+        },
+        "defaultReminderDays": {
+          "type": "number"
+        },
+        "apkDownloadUrl": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "apkVersion": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": ["appName", "maintenanceMode", "announcement", "allowNewRegistrations", "defaultReminderDays", "updatedAt", "updatedBy"]
+    },
+    "UserCourt": {
+      "title": "UserCourt",
+      "description": "Custom revenue court entry created by a user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "presidingOfficer": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "tehsil": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "district": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "name", "category", "createdAt"]
+    },
+    "RevenueCase": {
+      "title": "RevenueCase",
+      "description": "Private Uttar Pradesh revenue court case record owned strictly by a single user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "caseNumber": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "computerizedCaseNumber": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "courtName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "presidingOfficer": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "plaintiffName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "defendantName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "advocateName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "clientMobile": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "village": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "pargana": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "tehsil": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "district": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "gataNumber": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "section": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "filingDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "previousDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "nextDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "नवीन वाद",
+            "नोटिस जारी",
+            "नोटिस तामील",
+            "जवाब दाखिल",
+            "साक्ष्य",
+            "बहस",
+            "आदेश सुरक्षित",
+            "आदेश पारित",
+            "निस्तारित",
+            "अपील",
+            "स्थगित"
+          ]
+        },
+        "lekhpalReportPending": {
+          "type": "boolean"
+        },
+        "kanungoReportPending": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "caseNumber",
+        "computerizedCaseNumber",
+        "courtName",
+        "presidingOfficer",
+        "plaintiffName",
+        "defendantName",
+        "advocateName",
+        "clientMobile",
+        "village",
+        "pargana",
+        "tehsil",
+        "district",
+        "gataNumber",
+        "section",
+        "subject",
+        "filingDate",
+        "previousDate",
+        "nextDate",
+        "status",
+        "lekhpalReportPending",
+        "kanungoReportPending",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DailyDiaryEntry": {
+      "title": "DailyDiaryEntry",
+      "description": "Chronological daily proceedings entry attached to a revenue court case.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "caseId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "entryDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "proceedings": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "partyPresent": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "advocatePresent": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "oppositePartyPresent": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "lekhpalReportStatus": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "kanungoReportStatus": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "reportFiled": {
+          "type": "boolean"
+        },
+        "orderPassed": {
+          "type": "boolean"
+        },
+        "orderDetails": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "nextDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "nextDateWork": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "caseId",
+        "entryDate",
+        "proceedings",
+        "partyPresent",
+        "advocatePresent",
+        "oppositePartyPresent",
+        "lekhpalReportStatus",
+        "kanungoReportStatus",
+        "reportFiled",
+        "orderPassed",
+        "orderDetails",
+        "nextDate",
+        "nextDateWork",
+        "createdAt"
+      ]
+    },
+    "CaseDocument": {
+      "title": "CaseDocument",
+      "description": "Metadata for an uploaded legal or revenue document attached to a case.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "caseId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "PDF",
+            "न्यायालय आदेश",
+            "वाद पत्र",
+            "लिखित कथन",
+            "राजस्व अभिलेख",
+            "खतौनी",
+            "खसरा",
+            "नक्शा",
+            "लेखपाल रिपोर्ट",
+            "अन्य दस्तावेज़"
+          ]
+        },
+        "fileName": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "fileType": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "fileSize": {
+          "type": "number"
+        },
+        "downloadUrl": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "storagePath": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "uploadedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "caseId",
+        "title",
+        "category",
+        "fileName",
+        "fileType",
+        "fileSize",
+        "downloadUrl",
+        "storagePath",
+        "notes",
+        "uploadedAt"
+      ]
+    },
+    "CustomReminder": {
+      "title": "CustomReminder",
+      "description": "User-created custom hearing or task reminder.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "caseId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "caseNumber": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "reminderDate": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "reminderTime": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "isCompleted": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "caseId", "caseNumber", "title", "reminderDate", "reminderTime", "note", "isCompleted", "createdAt"]
+    },
+    "CaseContact": {
+      "title": "CaseContact",
+      "description": "Private contact record for opposing counsels, clients, and witnesses managed within Case Diary.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "enum": ["विपक्षी अधिवक्ता", "पक्षकार", "गवाह", "अन्य"]
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "alternatePhone": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "barRegOrRelation": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "caseId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "caseNumber": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "role",
+        "phone",
+        "alternatePhone",
+        "email",
+        "address",
+        "barRegOrRelation",
+        "caseId",
+        "caseNumber",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profiles with PII restricted to owner and admin."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted administrator lookup table."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSettings" },
+      "description": "Global application settings managed by admins."
+    },
+    "/courts/{courtId}": {
+      "schema": { "$ref": "#/entities/UserCourt" },
+      "description": "User-defined custom revenue courts."
+    },
+    "/cases/{caseId}": {
+      "schema": { "$ref": "#/entities/RevenueCase" },
+      "description": "Private revenue court case records strictly isolated per user."
+    },
+    "/cases/{caseId}/dailyEntries/{entryId}": {
+      "schema": { "$ref": "#/entities/DailyDiaryEntry" },
+      "description": "Chronological daily proceedings entries for each case."
+    },
+    "/cases/{caseId}/documents/{docId}": {
+      "schema": { "$ref": "#/entities/CaseDocument" },
+      "description": "Case-attached document metadata pointing to Firebase Storage."
+    },
+    "/reminders/{reminderId}": {
+      "schema": { "$ref": "#/entities/CustomReminder" },
+      "description": "User custom reminders for hearings and legal tasks."
+    },
+    "/contacts/{contactId}": {
+      "schema": { "$ref": "#/entities/CaseContact" },
+      "description": "Private contact directory for opposing counsels, clients, and witnesses strictly isolated per user."
+    }
+  }
+}

@@ -1,0 +1,647 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // GLOBAL SAFETY NET — Default Deny Everything
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // PRIMITIVE HELPERS
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Verified via either verified email (Google) or real SMS OTP phone number
+    function isVerifiedUser() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.phone_number != null
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'uk3190156@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // =========================================================================
+    // VALIDATION BLUEPRINTS (Anti-Update-Gap Helpers)
+    // =========================================================================
+    function isValidCaseStatus(status) {
+      return status is string && status in [
+        'नवीन वाद',
+        'नोटिस जारी',
+        'नोटिस तामील',
+        'जवाब दाखिल',
+        'साक्ष्य',
+        'बहस',
+        'आदेश सुरक्षित',
+        'आदेश पारित',
+        'निस्तारित',
+        'अपील',
+        'स्थगित'
+      ];
+    }
+
+    function isValidDocCategory(cat) {
+      return cat is string && cat in [
+        'PDF',
+        'न्यायालय आदेश',
+        'वाद पत्र',
+        'लिखित कथन',
+        'राजस्व अभिलेख',
+        'खतौनी',
+        'खसरा',
+        'नक्शा',
+        'लेखपाल रिपोर्ट',
+        'अन्य दस्तावेज़'
+      ];
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'name', 'mobileNumber', 'address', 'designation',
+          'district', 'tehsil', 'role', 'isBlocked', 'caseCount',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'name', 'mobileNumber', 'email', 'address', 'designation',
+          'district', 'tehsil', 'photoUrl', 'role', 'isBlocked', 'caseCount',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.mobileNumber is string && data.mobileNumber.size() <= 20
+        && (!('email' in data) || (data.email is string && data.email.size() <= 160))
+        && data.address is string && data.address.size() <= 400
+        && data.designation is string && data.designation.size() <= 120
+        && data.district is string && data.district.size() <= 100
+        && data.tehsil is string && data.tehsil.size() <= 100
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 1000))
+        && data.role is string && data.role in ['user', 'admin']
+        && data.isBlocked is bool
+        && data.caseCount is number && data.caseCount >= 0 && data.caseCount <= 100000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'addedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'addedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.addedAt is timestamp;
+    }
+
+    function isValidAppSettings(data) {
+      return data.keys().hasAll([
+          'appName', 'maintenanceMode', 'announcement',
+          'allowNewRegistrations', 'defaultReminderDays', 'updatedAt', 'updatedBy'
+        ])
+        && data.keys().hasOnly([
+          'appName', 'maintenanceMode', 'announcement',
+          'allowNewRegistrations', 'defaultReminderDays',
+          'apkDownloadUrl', 'apkVersion', 'updatedAt', 'updatedBy'
+        ])
+        && data.appName is string && data.appName.size() >= 1 && data.appName.size() <= 120
+        && data.maintenanceMode is bool
+        && data.announcement is string && data.announcement.size() <= 500
+        && data.allowNewRegistrations is bool
+        && data.defaultReminderDays is number && data.defaultReminderDays >= 0 && data.defaultReminderDays <= 30
+        && (!('apkDownloadUrl' in data) || (data.apkDownloadUrl is string && data.apkDownloadUrl.size() <= 2000 && (data.apkDownloadUrl == '' || data.apkDownloadUrl.matches('^https://.*'))))
+        && (!('apkVersion' in data) || (data.apkVersion is string && data.apkVersion.size() <= 40))
+        && data.updatedAt is timestamp
+        && data.updatedBy is string && data.updatedBy.size() <= 128;
+    }
+
+    function isValidUserCourt(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'category', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'category', 'presidingOfficer', 'tehsil', 'district', 'createdAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 160
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 100
+        && (!('presidingOfficer' in data) || (data.presidingOfficer is string && data.presidingOfficer.size() <= 120))
+        && (!('tehsil' in data) || (data.tehsil is string && data.tehsil.size() <= 100))
+        && (!('district' in data) || (data.district is string && data.district.size() <= 100))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRevenueCase(data) {
+      return data.keys().hasAll([
+          'ownerId', 'caseNumber', 'computerizedCaseNumber', 'courtName',
+          'presidingOfficer', 'plaintiffName', 'defendantName', 'advocateName',
+          'clientMobile', 'village', 'pargana', 'tehsil', 'district', 'gataNumber',
+          'section', 'subject', 'filingDate', 'previousDate', 'nextDate',
+          'status', 'lekhpalReportPending', 'kanungoReportPending', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'caseNumber', 'computerizedCaseNumber', 'courtName',
+          'presidingOfficer', 'plaintiffName', 'defendantName', 'advocateName',
+          'clientMobile', 'village', 'pargana', 'tehsil', 'district', 'gataNumber',
+          'section', 'subject', 'filingDate', 'previousDate', 'nextDate',
+          'status', 'lekhpalReportPending', 'kanungoReportPending', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.caseNumber is string && data.caseNumber.size() >= 1 && data.caseNumber.size() <= 100
+        && data.computerizedCaseNumber is string && data.computerizedCaseNumber.size() <= 120
+        && data.courtName is string && data.courtName.size() >= 1 && data.courtName.size() <= 160
+        && data.presidingOfficer is string && data.presidingOfficer.size() <= 120
+        && data.plaintiffName is string && data.plaintiffName.size() >= 1 && data.plaintiffName.size() <= 160
+        && data.defendantName is string && data.defendantName.size() <= 160
+        && data.advocateName is string && data.advocateName.size() <= 160
+        && data.clientMobile is string && data.clientMobile.size() <= 20
+        && data.village is string && data.village.size() <= 120
+        && data.pargana is string && data.pargana.size() <= 120
+        && data.tehsil is string && data.tehsil.size() <= 120
+        && data.district is string && data.district.size() <= 120
+        && data.gataNumber is string && data.gataNumber.size() <= 120
+        && data.section is string && data.section.size() <= 120
+        && data.subject is string && data.subject.size() <= 300
+        && data.filingDate is string && data.filingDate.size() <= 20
+        && data.previousDate is string && data.previousDate.size() <= 20
+        && data.nextDate is string && data.nextDate.size() <= 20
+        && isValidCaseStatus(data.status)
+        && data.lekhpalReportPending is bool
+        && data.kanungoReportPending is bool
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDailyEntry(data, parentCaseId) {
+      return data.keys().hasAll([
+          'ownerId', 'caseId', 'entryDate', 'proceedings', 'partyPresent',
+          'advocatePresent', 'oppositePartyPresent', 'lekhpalReportStatus',
+          'kanungoReportStatus', 'reportFiled', 'orderPassed', 'orderDetails',
+          'nextDate', 'nextDateWork', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'caseId', 'entryDate', 'proceedings', 'partyPresent',
+          'advocatePresent', 'oppositePartyPresent', 'lekhpalReportStatus',
+          'kanungoReportStatus', 'reportFiled', 'orderPassed', 'orderDetails',
+          'nextDate', 'nextDateWork', 'createdAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.caseId)
+        && data.caseId == parentCaseId
+        && data.entryDate is string && data.entryDate.size() >= 1 && data.entryDate.size() <= 20
+        && data.proceedings is string && data.proceedings.size() >= 1 && data.proceedings.size() <= 2000
+        && data.partyPresent is string && data.partyPresent.size() <= 200
+        && data.advocatePresent is string && data.advocatePresent.size() <= 100
+        && data.oppositePartyPresent is string && data.oppositePartyPresent.size() <= 100
+        && data.lekhpalReportStatus is string && data.lekhpalReportStatus.size() <= 120
+        && data.kanungoReportStatus is string && data.kanungoReportStatus.size() <= 120
+        && data.reportFiled is bool
+        && data.orderPassed is bool
+        && data.orderDetails is string && data.orderDetails.size() <= 2000
+        && data.nextDate is string && data.nextDate.size() <= 20
+        && data.nextDateWork is string && data.nextDateWork.size() <= 500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCaseDocument(data, parentCaseId) {
+      return data.keys().hasAll([
+          'ownerId', 'caseId', 'title', 'category', 'fileName', 'fileType',
+          'fileSize', 'downloadUrl', 'storagePath', 'notes', 'uploadedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'caseId', 'title', 'category', 'fileName', 'fileType',
+          'fileSize', 'downloadUrl', 'storagePath', 'notes', 'uploadedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && isValidId(data.caseId)
+        && data.caseId == parentCaseId
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && isValidDocCategory(data.category)
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255
+        && data.fileType is string && data.fileType.size() <= 100
+        && data.fileSize is number && data.fileSize >= 0 && data.fileSize <= 20971520
+        && data.downloadUrl is string && data.downloadUrl.size() <= 2000
+        && data.storagePath is string && data.storagePath.size() <= 500
+        && data.notes is string && data.notes.size() <= 500
+        && data.uploadedAt is timestamp;
+    }
+
+    function isValidCustomReminder(data) {
+      return data.keys().hasAll([
+          'ownerId', 'caseId', 'caseNumber', 'title',
+          'reminderDate', 'reminderTime', 'note', 'isCompleted', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'caseId', 'caseNumber', 'title',
+          'reminderDate', 'reminderTime', 'note', 'isCompleted', 'createdAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.caseId is string && data.caseId.size() <= 128
+        && data.caseNumber is string && data.caseNumber.size() <= 100
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.reminderDate is string && data.reminderDate.size() >= 1 && data.reminderDate.size() <= 20
+        && data.reminderTime is string && data.reminderTime.size() <= 10
+        && data.note is string && data.note.size() <= 500
+        && data.isCompleted is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidContactRole(role) {
+      return role is string && role in [
+        'विपक्षी अधिवक्ता',
+        'पक्षकार',
+        'गवाह',
+        'अन्य'
+      ];
+    }
+
+    function isValidCaseContact(data) {
+      return data.keys().hasAll([
+          'ownerId', 'name', 'role', 'phone', 'alternatePhone', 'email',
+          'address', 'barRegOrRelation', 'caseId', 'caseNumber', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'name', 'role', 'phone', 'alternatePhone', 'email',
+          'address', 'barRegOrRelation', 'caseId', 'caseNumber', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && isValidContactRole(data.role)
+        && data.phone is string && data.phone.size() >= 1 && data.phone.size() <= 20
+        && data.alternatePhone is string && data.alternatePhone.size() <= 20
+        && data.email is string && data.email.size() <= 160
+        && data.address is string && data.address.size() <= 400
+        && data.barRegOrRelation is string && data.barRegOrRelation.size() <= 160
+        && data.caseId is string && data.caseId.size() <= 128
+        && data.caseNumber is string && data.caseNumber.size() <= 100
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // COLLECTION: /users/{userId} (PII strictly restricted to Owner & Admin)
+    // =========================================================================
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && (incoming().role == 'user' || isBootstrappedAdmin())
+        && incoming().isBlocked == false
+        && incoming().caseCount == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Owner updates own profile fields (cannot touch role or isBlocked)
+          (
+            isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().isBlocked == existing().isBlocked
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'mobileNumber', 'email', 'address', 'designation',
+              'district', 'tehsil', 'photoUrl', 'caseCount', 'updatedAt'
+            ])
+          ) ||
+          // Action 2: Admin manages user account status or role
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'isBlocked', 'role', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // =========================================================================
+    // COLLECTION: /admins/{adminId}
+    // =========================================================================
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isAdmin()
+        && isValidId(adminId)
+        && isValidAdminRecord(incoming())
+        && incoming().uid == adminId
+        && incoming().addedAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(adminId);
+    }
+
+    // =========================================================================
+    // COLLECTION: /settings/{settingId}
+    // =========================================================================
+    match /settings/{settingId} {
+      allow get: if isVerifiedUser() && isValidId(settingId) && settingId == 'app';
+      allow list: if false;
+      allow create: if isAdmin()
+        && isValidId(settingId)
+        && settingId == 'app'
+        && isValidAppSettings(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(settingId)
+        && settingId == 'app'
+        && isValidAppSettings(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'appName', 'maintenanceMode', 'announcement',
+          'allowNewRegistrations', 'defaultReminderDays',
+          'apkDownloadUrl', 'apkVersion', 'updatedAt', 'updatedBy'
+        ]);
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // COLLECTION: /courts/{courtId} (Strictly Private Per User)
+    // =========================================================================
+    match /courts/{courtId} {
+      allow get: if isVerifiedUser()
+        && isValidId(courtId)
+        && existing().ownerId == request.auth.uid;
+
+      allow list: if isVerifiedUser()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(courtId)
+        && isValidUserCourt(incoming())
+        && incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(courtId)
+        && isValidUserCourt(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'category', 'presidingOfficer', 'tehsil', 'district'
+        ]);
+
+      allow delete: if isVerifiedUser()
+        && isValidId(courtId)
+        && existing().ownerId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // COLLECTION: /cases/{caseId} (Strictly Owner-Only — Admin Has NO Access)
+    // =========================================================================
+    match /cases/{caseId} {
+      allow get: if isVerifiedUser()
+        && isValidId(caseId)
+        && existing().ownerId == request.auth.uid;
+
+      allow list: if isVerifiedUser()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(caseId)
+        && isValidRevenueCase(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(caseId)
+        && isValidRevenueCase(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (existing().status != 'निस्तारित' || incoming().status in ['निस्तारित', 'अपील'])
+        && (
+          // Action 1: Owner edits full case details
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'caseNumber', 'computerizedCaseNumber', 'courtName', 'presidingOfficer',
+            'plaintiffName', 'defendantName', 'advocateName', 'clientMobile',
+            'village', 'pargana', 'tehsil', 'district', 'gataNumber', 'section',
+            'subject', 'filingDate', 'previousDate', 'nextDate', 'status',
+            'lekhpalReportPending', 'kanungoReportPending', 'notes', 'updatedAt'
+          ]) ||
+          // Action 2: Daily diary sync updates schedule, report flags, and status
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'previousDate', 'nextDate', 'status',
+            'lekhpalReportPending', 'kanungoReportPending', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(caseId)
+        && existing().ownerId == request.auth.uid;
+
+      // -----------------------------------------------------------------------
+      // SUBCOLLECTION: /cases/{caseId}/dailyEntries/{entryId} (Master Gate)
+      // -----------------------------------------------------------------------
+      match /dailyEntries/{entryId} {
+        function isParentCaseOwner() {
+          return exists(/databases/$(database)/documents/cases/$(caseId))
+            && get(/databases/$(database)/documents/cases/$(caseId)).data.ownerId == request.auth.uid;
+        }
+
+        allow get: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(entryId)
+          && existing().ownerId == request.auth.uid
+          && isParentCaseOwner();
+
+        allow list: if isVerifiedUser()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.caseId == caseId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(entryId)
+          && isValidDailyEntry(incoming(), caseId)
+          && incoming().createdAt == request.time
+          && isParentCaseOwner();
+
+        allow update: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(entryId)
+          && isValidDailyEntry(incoming(), caseId)
+          && existing().ownerId == request.auth.uid
+          && incoming().ownerId == existing().ownerId
+          && incoming().caseId == existing().caseId
+          && incoming().createdAt == existing().createdAt
+          && isParentCaseOwner()
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'entryDate', 'proceedings', 'partyPresent', 'advocatePresent',
+            'oppositePartyPresent', 'lekhpalReportStatus', 'kanungoReportStatus',
+            'reportFiled', 'orderPassed', 'orderDetails', 'nextDate', 'nextDateWork'
+          ]);
+
+        allow delete: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(entryId)
+          && existing().ownerId == request.auth.uid
+          && isParentCaseOwner();
+      }
+
+      // -----------------------------------------------------------------------
+      // SUBCOLLECTION: /cases/{caseId}/documents/{docId} (Master Gate)
+      // -----------------------------------------------------------------------
+      match /documents/{docId} {
+        function isParentCaseOwner() {
+          return exists(/databases/$(database)/documents/cases/$(caseId))
+            && get(/databases/$(database)/documents/cases/$(caseId)).data.ownerId == request.auth.uid;
+        }
+
+        allow get: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(docId)
+          && existing().ownerId == request.auth.uid
+          && isParentCaseOwner();
+
+        allow list: if isVerifiedUser()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.caseId == caseId;
+
+        allow create: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(docId)
+          && isValidCaseDocument(incoming(), caseId)
+          && incoming().uploadedAt == request.time
+          && isParentCaseOwner();
+
+        allow update: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(docId)
+          && isValidCaseDocument(incoming(), caseId)
+          && existing().ownerId == request.auth.uid
+          && incoming().ownerId == existing().ownerId
+          && incoming().caseId == existing().caseId
+          && incoming().uploadedAt == existing().uploadedAt
+          && isParentCaseOwner()
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'category', 'notes'
+          ]);
+
+        allow delete: if isVerifiedUser()
+          && isValidId(caseId)
+          && isValidId(docId)
+          && existing().ownerId == request.auth.uid
+          && isParentCaseOwner();
+      }
+    }
+
+    // =========================================================================
+    // COLLECTION: /reminders/{reminderId} (Strictly Private Per User)
+    // =========================================================================
+    match /reminders/{reminderId} {
+      allow get: if isVerifiedUser()
+        && isValidId(reminderId)
+        && existing().ownerId == request.auth.uid;
+
+      allow list: if isVerifiedUser()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(reminderId)
+        && isValidCustomReminder(incoming())
+        && incoming().createdAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(reminderId)
+        && isValidCustomReminder(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action 1: Toggle completion
+          incoming().diff(existing()).affectedKeys().hasOnly(['isCompleted']) ||
+          // Action 2: Edit reminder details
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'reminderDate', 'reminderTime', 'note', 'caseId', 'caseNumber', 'isCompleted'
+          ])
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(reminderId)
+        && existing().ownerId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // COLLECTION: /contacts/{contactId} (Strictly Private Per User — PII Isolated)
+    // =========================================================================
+    match /contacts/{contactId} {
+      allow get: if isVerifiedUser()
+        && isValidId(contactId)
+        && existing().ownerId == request.auth.uid;
+
+      allow list: if isVerifiedUser()
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser()
+        && isValidId(contactId)
+        && isValidCaseContact(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(contactId)
+        && isValidCaseContact(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Owner edits contact details
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'role', 'phone', 'alternatePhone', 'email',
+            'address', 'barRegOrRelation', 'caseId', 'caseNumber', 'notes', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerifiedUser()
+        && isValidId(contactId)
+        && existing().ownerId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "appId": "in.up.rajaswa.casediary",
+  "appName": "राजस्व न्यायालय केस डायरी",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

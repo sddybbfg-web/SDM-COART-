@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Strict per-user document and profile photo isolation
+    match /users/{userId}/profile/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/cases/{caseId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 15 * 1024 * 1024
+        && (
+          request.resource.contentType == 'application/pdf' ||
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType == 'application/msword' ||
+          request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Public Android APK releases (upload strictly restricted to verified bootstrapped admin)
+    match /public/releases/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.token.email == 'uk3190156@gmail.com'
+        && request.auth.token.email_verified == true
+        && fileName.matches('.*\\.apk$')
+        && request.resource.size < 100 * 1024 * 1024;
+      allow delete: if request.auth != null
+        && request.auth.token.email == 'uk3190156@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+  }
+}
